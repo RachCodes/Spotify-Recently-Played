@@ -1,0 +1,72 @@
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import cred
+import pandas as pd
+
+
+# Get Authorisation
+scope = "user-read-recently-played, playlist-modify-public, user-library-read"
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=cred.client_ID, client_secret=cred.client_SECRET, redirect_uri=cred.redirect_url, scope=scope))
+
+results = sp.current_user_recently_played(limit=5)
+user = cred.user_id
+
+# Creating Dictionary
+
+recently_played_pull = {}
+
+for idx, item in enumerate(results['items']):
+    track = item['track']
+    recently_played_pull[track['id']] = {
+        'track_id': track['id'],
+        'artist': track['artists'][0]['name'],
+        'song_title': track['name']
+    }
+
+
+#Creating List of Recently Played
+recently_played = recently_played_pull.items()
+
+
+# User Rating & Saving to Playlist
+
+playlist = []
+
+for p in recently_played:
+    rate_response = int(input("Rate this track out of 5: {} ". format(p)))
+
+    if rate_response >= 4:
+        playlist.append(p)
+
+# Creating Dataframe
+
+playlist_df = pd.DataFrame(playlist, columns=['track_id', 'artist'])
+playlist_df.to_csv('playlist_df.csv')
+
+
+
+# Creating Playlist for Spotify
+
+spotifyObject = sp
+
+playlist_choice = input('Do you want to create a new playlist? y/n ')
+new_playlist = playlist_choice == 'y'
+
+if new_playlist:
+    playlist_name = input('Enter a playlist name: ')
+    playlist_description = input('Enter a playlist description: ')
+    playlist_result = spotifyObject.user_playlist_create(user=user, name=playlist_name, public=True, description=playlist_description)
+    pl_id = playlist_result['id']
+    print(pl_id)
+
+if not new_playlist:
+    choose_playlist = input('What is the playlist id you wish to use ')
+    pl_id = choose_playlist
+
+# Adding Tracks
+
+pl_length = 30
+last_tracks_added = playlist_df.loc[0:pl_length-1]
+tracks_to_add = last_tracks_added.track_id.tolist()
+sp.playlist_add_items(pl_id,tracks_to_add )
+print('Tracks Added')
